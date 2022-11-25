@@ -1,12 +1,31 @@
 module Hello exposing (..)
 
-import Html exposing (Html, div, h3, img, table, tbody, text, th, thead, tr)
+import Browser
+import Html exposing (Html, button, div, h3, img, table, tbody, text, th, thead, tr)
 import Html.Attributes exposing (id, src, width)
+import Html.Events exposing (onClick)
 
 
 greeting : Int -> String
 greeting count =
     "Welcome! you have " ++ String.fromInt count ++ " items in your cart"
+
+
+type Msg
+    = IncrementQuantities
+    | DecrementQuantities
+    | ResetQuantities
+
+
+type alias Product =
+    { name : String
+    , photo : String
+    , quantity : Int
+    }
+
+
+type alias Model =
+    List Product
 
 
 dayPromo : number -> String
@@ -31,7 +50,20 @@ fruitPromo fruit =
             "Large discounts"
 
 
-productsModel : List { name : String, photo : String, quantity : Int }
+update : Msg -> Model -> Model
+update msg model =
+    case msg of
+        IncrementQuantities ->
+            List.map (\p -> { p | quantity = p.quantity + 1 }) model
+
+        DecrementQuantities ->
+            List.map (\p -> { p | quantity = p.quantity - 1 }) model
+
+        ResetQuantities ->
+            productsModel
+
+
+productsModel : Model
 productsModel =
     [ { name = "Cheese", photo = "cheese.png", quantity = 1 }
     , { name = "Bananas", photo = "bananas.png", quantity = 3 }
@@ -39,7 +71,7 @@ productsModel =
     ]
 
 
-itemView : { name : String, photo : String, quantity : Int } -> Html msg
+itemView : Product -> Html msg
 itemView model =
     tr []
         [ th [] [ text model.name ]
@@ -48,7 +80,7 @@ itemView model =
         ]
 
 
-cartView : List { name : String, photo : String, quantity : number } -> Html msg
+cartView : Model -> Html Msg
 cartView model =
     div [ id "cart" ]
         [ h3 [] [ greeting 0 |> text ]
@@ -62,10 +94,17 @@ cartView model =
                     , th [] [ text "Quantity" ]
                     ]
                 ]
-            , tbody [] (List.map itemView productsModel)
+            , tbody [] (List.map itemView model)
             ]
+        , button [ onClick IncrementQuantities ] [ text "Increase quantities" ]
+        , button [ onClick DecrementQuantities ] [ text "Decrease quantities" ]
+        , button [ onClick ResetQuantities ] [ text "Reset quantities" ]
         ]
 
 
 main =
-    cartView productsModel
+    Browser.sandbox
+        { init = productsModel
+        , update = update
+        , view = cartView
+        }
