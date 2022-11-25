@@ -1,8 +1,8 @@
 module Hello exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, h3, img, table, tbody, text, th, thead, tr)
-import Html.Attributes exposing (id, src, width)
+import Html exposing (Html, button, div, h3, img, node, table, tbody, text, th, thead, tr)
+import Html.Attributes exposing (attribute, class, id, src, style, width)
 import Html.Events exposing (onClick)
 
 
@@ -83,10 +83,24 @@ itemView model =
 cartView : Model -> Html Msg
 cartView model =
     div [ id "cart" ]
-        [ h3 [] [ greeting 0 |> text ]
-        , div [] [ dayPromo 1 |> text ]
+        [ node "link"
+            [ attribute "rel" "stylesheet"
+            , attribute "href" "main.css"
+            ]
+            []
+        , node "link"
+            [ attribute "rel" "stylesheet"
+            , attribute "href" "https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
+            , attribute "integrity" "sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65"
+            , attribute "crossorigin" "anonymous"
+            ]
+            []
+        , h3 [ style "font-size" "200%" ]
+            [ List.map (\p -> p.quantity) model |> List.sum |> greeting |> text
+            ]
+        , div [ class "special-notice" ] [ dayPromo 1 |> text ]
         , div [] [ text <| fruitPromo "banana" ]
-        , table []
+        , table [ class "table table-striped" ]
             [ thead []
                 [ tr []
                     [ th [] [ text "Product" ]
@@ -96,9 +110,9 @@ cartView model =
                 ]
             , tbody [] (List.map itemView model)
             ]
-        , button [ onClick IncrementQuantities ] [ text "Increase quantities" ]
-        , button [ onClick DecrementQuantities ] [ text "Decrease quantities" ]
-        , button [ onClick ResetQuantities ] [ text "Reset quantities" ]
+        , button [ onClick IncrementQuantities, class "btn btn-primary" ] [ text "Increase quantities" ]
+        , button [ onClick DecrementQuantities, class "btn btn-secondary" ] [ text "Decrease quantities" ]
+        , button [ onClick ResetQuantities, class "btn btn-dark" ] [ text "Reset quantities" ]
         ]
 
 
