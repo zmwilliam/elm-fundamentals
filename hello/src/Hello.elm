@@ -12,15 +12,15 @@ greeting count =
 
 
 type Msg
-    = IncrementQuantities
-    | DecrementQuantities
-    | ResetQuantities
+    = Quantities Int
+    | AddToCart Product
 
 
 type alias Product =
     { name : String
     , photo : String
     , quantity : Int
+    , unitPrice : Int
     }
 
 
@@ -52,31 +52,77 @@ fruitPromo fruit =
 
 update : Msg -> Model -> Model
 update msg model =
+    let
+        changeQuantity q =
+            List.map (\p -> { p | quantity = p.quantity + q }) model
+    in
     case msg of
-        IncrementQuantities ->
-            List.map (\p -> { p | quantity = p.quantity + 1 }) model
+        Quantities 2 ->
+            changeQuantity 1
 
-        DecrementQuantities ->
-            List.map (\p -> { p | quantity = p.quantity - 1 }) model
+        Quantities 1 ->
+            changeQuantity -1
 
-        ResetQuantities ->
-            productsModel
+        Quantities _ ->
+            initialModel
+
+        AddToCart p ->
+            if List.any (\i -> i.name == p.name) model then
+                List.map
+                    (\i ->
+                        if i.name == p.name then
+                            { i | quantity = i.quantity + 1 }
+
+                        else
+                            i
+                    )
+                    model
+
+            else
+                List.append model [ p ]
 
 
-productsModel : Model
-productsModel =
-    [ { name = "Cheese", photo = "cheese.png", quantity = 1 }
-    , { name = "Bananas", photo = "bananas.png", quantity = 3 }
-    , { name = "Milk", photo = "milk.png", quantity = 2 }
+calculaPrice : { a | quantity : Int, unitPrice : Int } -> String
+calculaPrice extensible =
+    extensible.quantity * extensible.unitPrice |> String.fromInt
+
+
+initialModel : Model
+initialModel =
+    [ { name = "Cheese", photo = "cheese.png", quantity = 1, unitPrice = 7 }
+    , { name = "Bananas", photo = "bananas.png", quantity = 3, unitPrice = 5 }
+    , { name = "Milk", photo = "milk.png", quantity = 2, unitPrice = 3 }
+    ]
+
+
+inventoryModel : Model
+inventoryModel =
+    [ { name = "Cheese", photo = "cheese.png", quantity = 1, unitPrice = 7 }
+    , { name = "Bananas", photo = "bananas.png", quantity = 1, unitPrice = 5 }
+    , { name = "Milk", photo = "milk.png", quantity = 1, unitPrice = 3 }
+    , { name = "Bread", photo = "bread.png", quantity = 1, unitPrice = 4 }
+    , { name = "Chips", photo = "chips.png", quantity = 1, unitPrice = 2 }
     ]
 
 
 itemView : Product -> Html msg
-itemView model =
+itemView product =
     tr []
-        [ th [] [ text model.name ]
-        , th [] [ img [ src model.photo, width 100 ] [] ]
-        , th [] [ text <| String.fromInt model.quantity ]
+        [ th [] [ text product.name ]
+        , th [] [ img [ src product.photo, width 100 ] [] ]
+        , th [] [ text <| String.fromInt product.quantity ]
+        , th [] [ text <| calculaPrice product ]
+        ]
+
+
+inventoryItemView : Product -> Html Msg
+inventoryItemView product =
+    div [ class "col" ]
+        [ img [ src product.photo, width 100 ] []
+        , div [] [ text product.name ]
+        , div [] [ text ("$ " ++ String.fromInt product.unitPrice) ]
+        , div []
+            [ button [ class "btn btn-outline-primary", onClick (AddToCart product) ] [ text "Add to Cart" ] ]
         ]
 
 
@@ -106,19 +152,25 @@ cartView model =
                     [ th [] [ text "Product" ]
                     , th [] [ text "Photo" ]
                     , th [] [ text "Quantity" ]
+                    , th [] [ text "Price" ]
                     ]
                 ]
             , tbody [] (List.map itemView model)
             ]
-        , button [ onClick IncrementQuantities, class "btn btn-primary" ] [ text "Increase quantities" ]
-        , button [ onClick DecrementQuantities, class "btn btn-secondary" ] [ text "Decrease quantities" ]
-        , button [ onClick ResetQuantities, class "btn btn-dark" ] [ text "Reset quantities" ]
+        , button [ onClick (Quantities 2), class "btn btn-primary" ] [ text "Increase quantities" ]
+        , button [ onClick (Quantities 1), class "btn btn-secondary" ] [ text "Decrease quantities" ]
+        , button [ onClick (Quantities 0), class "btn btn-dark" ] [ text "Reset quantities" ]
+        , div [ class "container" ]
+            [ div [ class "row text-centered" ]
+                (List.map inventoryItemView inventoryModel)
+            ]
         ]
 
 
+main : Program () Model Msg
 main =
     Browser.sandbox
-        { init = productsModel
+        { init = initialModel
         , update = update
         , view = cartView
         }
