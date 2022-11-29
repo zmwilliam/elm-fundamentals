@@ -1,9 +1,9 @@
 module Hello exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, h3, img, node, table, tbody, text, th, thead, tr)
-import Html.Attributes exposing (attribute, class, id, src, style, width)
-import Html.Events exposing (onClick)
+import Html exposing (Html, button, div, h3, img, input, node, table, tbody, text, th, thead, tr)
+import Html.Attributes exposing (attribute, class, id, src, style, type_, value, width)
+import Html.Events exposing (onClick, onInput)
 
 
 greeting : Int -> String
@@ -14,6 +14,7 @@ greeting count =
 type Msg
     = Quantities Int
     | AddToCart Product
+    | ChangeQuantity Product String
 
 
 type alias Product =
@@ -55,6 +56,7 @@ update msg model =
     let
         changeQuantity q =
             List.map (\p -> { p | quantity = p.quantity + q }) model
+                |> List.filter (\i -> i.quantity > 0)
     in
     case msg of
         Quantities 2 ->
@@ -81,6 +83,18 @@ update msg model =
             else
                 List.append model [ p ]
 
+        ChangeQuantity p v ->
+            List.map
+                (\i ->
+                    if i.name == p.name then
+                        { i | quantity = v |> String.toInt |> Maybe.withDefault 1 }
+
+                    else
+                        i
+                )
+                model
+                |> List.filter (\i -> i.quantity > 0)
+
 
 calculaPrice : { a | quantity : Int, unitPrice : Int } -> String
 calculaPrice extensible =
@@ -105,12 +119,19 @@ inventoryModel =
     ]
 
 
-itemView : Product -> Html msg
+itemView : Product -> Html Msg
 itemView product =
     tr []
         [ th [] [ text product.name ]
         , th [] [ img [ src product.photo, width 100 ] [] ]
-        , th [] [ text <| String.fromInt product.quantity ]
+        , th []
+            [ input
+                [ type_ "number"
+                , value (String.fromInt product.quantity)
+                , onInput (ChangeQuantity product)
+                ]
+                []
+            ]
         , th [] [ text <| calculaPrice product ]
         ]
 
@@ -156,6 +177,10 @@ cartView model =
                     ]
                 ]
             , tbody [] (List.map itemView model)
+            ]
+        , div []
+            [ text "Total amount: $ "
+            , List.map (\p -> p.unitPrice * p.quantity) model |> List.sum |> String.fromInt |> text
             ]
         , button [ onClick (Quantities 2), class "btn btn-primary" ] [ text "Increase quantities" ]
         , button [ onClick (Quantities 1), class "btn btn-secondary" ] [ text "Decrease quantities" ]
