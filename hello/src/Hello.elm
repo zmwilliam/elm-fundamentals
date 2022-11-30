@@ -5,6 +5,7 @@ import Html exposing (Html, button, div, h3, img, input, node, table, tbody, tex
 import Html.Attributes exposing (attribute, class, disabled, id, src, style, type_, value, width)
 import Html.Events exposing (onClick, onInput)
 import Http
+import Json.Decode as JD
 import List exposing (product)
 
 
@@ -24,9 +25,22 @@ type Msg
 submitOrderCommand : Cmd Msg
 submitOrderCommand =
     Http.get
-        { url = "http://localhost:8000/src/server-data/connection.txt"
+        { url = "http://localhost:8000/src/server-data/order.json"
         , expect = Http.expectString ServerResponse
         }
+
+
+orderDecoder : JD.Decoder OrderResponse
+orderDecoder =
+    JD.map2 OrderResponse
+        (JD.field "orderId" JD.int)
+        (JD.field "delivery" JD.string)
+
+
+type alias OrderResponse =
+    { orderNumber : Int
+    , deliveryEstimate : String
+    }
 
 
 type alias Product =
@@ -128,7 +142,19 @@ update msg model =
             ( model, submitOrderCommand )
 
         ServerResponse (Ok responseText) ->
-            ( { products = [], status = responseText }, Cmd.none )
+            let
+                decodingResult =
+                    JD.decodeString orderDecoder responseText
+
+                newStatus =
+                    case decodingResult of
+                        Ok response ->
+                            "Your order id is " ++ String.fromInt response.orderNumber ++ ". " ++ response.deliveryEstimate
+
+                        Err _ ->
+                            "No order id, we'll call you latter "
+            in
+            ( { products = [], status = newStatus }, Cmd.none )
 
         ServerResponse (Err _) ->
             ( { model | status = "An error occorred, please try again later!" }, Cmd.none )
