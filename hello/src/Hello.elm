@@ -1,4 +1,4 @@
-module Hello exposing (..)
+port module Hello exposing (..)
 
 import Browser
 import Html exposing (Html, button, div, h3, img, input, node, table, tbody, text, th, thead, tr)
@@ -7,6 +7,12 @@ import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as JD
 import List exposing (product)
+
+
+port fromElmToJS : String -> Cmd msg
+
+
+port fromJSToElm : (String -> msg) -> Sub msg
 
 
 greeting : Int -> String
@@ -20,6 +26,7 @@ type Msg
     | ChangeQuantity Product String
     | SubmitOrder
     | ServerResponse (Result Http.Error String)
+    | DataFromJS String
 
 
 submitOrderCommand : Cmd Msg
@@ -154,10 +161,13 @@ update msg model =
                         Err _ ->
                             "No order id, we'll call you latter "
             in
-            ( { products = [], status = newStatus }, Cmd.none )
+            ( { products = [], status = newStatus }, fromElmToJS newStatus )
 
         ServerResponse (Err _) ->
             ( { model | status = "An error occorred, please try again later!" }, Cmd.none )
+
+        DataFromJS newStatus ->
+            ( { model | status = newStatus }, Cmd.none )
 
 
 calculaPrice : { a | quantity : Int, unitPrice : Int } -> String
@@ -276,8 +286,8 @@ main =
 
 
 subscriptionsApp : Model -> Sub Msg
-subscriptionsApp model =
-    Sub.none
+subscriptionsApp _ =
+    fromJSToElm DataFromJS
 
 
 initialApp : () -> ( Model, Cmd Msg )

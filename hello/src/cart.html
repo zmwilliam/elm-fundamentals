@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="elm-cart"></div>
+  <!--To generate cart.js, run: "elm make src/Hello.elm --output src/cart.js"-->
+  <script src="cart.js"></script>
+  <script>
+    var app = Elm.Hello.init({
+      node: document.getElementById("elm-cart")
+    })
+
+    app.ports.fromElmToJS.subscribe(processElmData)
+
+    function processElmData(data) {
+      console.log("Elm order status: " + data)
+      var newStatus = prompt("please enter the new status", data)
+      app.ports.fromJSToElm.send(newStatus)
+    }
+  </script>
+</body>
+
+</html>
