@@ -2,8 +2,10 @@ module Hello exposing (..)
 
 import Browser
 import Html exposing (Html, button, div, h3, img, input, node, table, tbody, text, th, thead, tr)
-import Html.Attributes exposing (attribute, class, id, src, style, type_, value, width)
+import Html.Attributes exposing (attribute, class, disabled, id, src, style, type_, value, width)
 import Html.Events exposing (onClick, onInput)
+import Http
+import List exposing (product)
 
 
 greeting : Int -> String
@@ -15,6 +17,16 @@ type Msg
     = Quantities Int
     | AddToCart Product
     | ChangeQuantity Product String
+    | SubmitOrder
+    | ServerResponse (Result Http.Error String)
+
+
+submitOrderCommand : Cmd Msg
+submitOrderCommand =
+    Http.get
+        { url = "http://localhost:8000/src/server-data/connection.txt"
+        , expect = Http.expectString ServerResponse
+        }
 
 
 type alias Product =
@@ -26,7 +38,9 @@ type alias Product =
 
 
 type alias Model =
-    List Product
+    { products : List Product
+    , status : String
+    }
 
 
 dayPromo : number -> String
@@ -51,12 +65,17 @@ fruitPromo fruit =
             "Large discounts"
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
         changeQuantity q =
-            List.map (\p -> { p | quantity = p.quantity + q }) model
-                |> List.filter (\i -> i.quantity > 0)
+            ( { model
+                | products =
+                    List.map (\p -> { p | quantity = p.quantity + q }) model.products
+                        |> List.filter (\i -> i.quantity > 0)
+              }
+            , Cmd.none
+            )
     in
     case msg of
         Quantities 2 ->
@@ -66,34 +85,53 @@ update msg model =
             changeQuantity -1
 
         Quantities _ ->
-            initialModel
+            ( initialModel, Cmd.none )
 
         AddToCart p ->
-            if List.any (\i -> i.name == p.name) model then
-                List.map
-                    (\i ->
-                        if i.name == p.name then
-                            { i | quantity = i.quantity + 1 }
+            ( { model
+                | products =
+                    if List.any (\i -> i.name == p.name) model.products then
+                        List.map
+                            (\i ->
+                                if i.name == p.name then
+                                    { i | quantity = i.quantity + 1 }
 
-                        else
-                            i
-                    )
-                    model
-
-            else
-                List.append model [ p ]
-
-        ChangeQuantity p v ->
-            List.map
-                (\i ->
-                    if i.name == p.name then
-                        { i | quantity = v |> String.toInt |> Maybe.withDefault 1 }
+                                else
+                                    i
+                            )
+                            model.products
 
                     else
-                        i
-                )
-                model
-                |> List.filter (\i -> i.quantity > 0)
+                        List.append model.products [ p ]
+              }
+            , Cmd.none
+            )
+
+        ChangeQuantity p v ->
+            ( { model
+                | products =
+                    model.products
+                        |> List.map
+                            (\i ->
+                                if i.name == p.name then
+                                    { i | quantity = v |> String.toInt |> Maybe.withDefault 1 }
+
+                                else
+                                    i
+                            )
+                        |> List.filter (\i -> i.quantity > 0)
+              }
+            , Cmd.none
+            )
+
+        SubmitOrder ->
+            ( model, submitOrderCommand )
+
+        ServerResponse (Ok responseText) ->
+            ( { products = [], status = responseText }, Cmd.none )
+
+        ServerResponse (Err _) ->
+            ( { model | status = "An error occorred, please try again later!" }, Cmd.none )
 
 
 calculaPrice : { a | quantity : Int, unitPrice : Int } -> String
@@ -103,13 +141,16 @@ calculaPrice extensible =
 
 initialModel : Model
 initialModel =
-    [ { name = "Cheese", photo = "cheese.png", quantity = 1, unitPrice = 7 }
-    , { name = "Bananas", photo = "bananas.png", quantity = 3, unitPrice = 5 }
-    , { name = "Milk", photo = "milk.png", quantity = 2, unitPrice = 3 }
-    ]
+    { products =
+        [ { name = "Cheese", photo = "cheese.png", quantity = 1, unitPrice = 7 }
+        , { name = "Bananas", photo = "bananas.png", quantity = 3, unitPrice = 5 }
+        , { name = "Milk", photo = "milk.png", quantity = 2, unitPrice = 3 }
+        ]
+    , status = "Please add products and submit your order!"
+    }
 
 
-inventoryModel : Model
+inventoryModel : List Product
 inventoryModel =
     [ { name = "Cheese", photo = "cheese.png", quantity = 1, unitPrice = 7 }
     , { name = "Bananas", photo = "bananas.png", quantity = 1, unitPrice = 5 }
@@ -163,9 +204,9 @@ cartView model =
             ]
             []
         , h3 [ style "font-size" "200%" ]
-            [ List.map (\p -> p.quantity) model |> List.sum |> greeting |> text
+            [ List.map (\p -> p.quantity) model.products |> List.sum |> greeting |> text
             ]
-        , div [ class "special-notice" ] [ dayPromo 1 |> text ]
+        , div [ class "special-notice" ] [ text model.status ]
         , div [] [ text <| fruitPromo "banana" ]
         , table [ class "table table-striped" ]
             [ thead []
@@ -176,15 +217,21 @@ cartView model =
                     , th [] [ text "Price" ]
                     ]
                 ]
-            , tbody [] (List.map itemView model)
+            , tbody [] (List.map itemView model.products)
             ]
         , div []
             [ text "Total amount: $ "
-            , List.map (\p -> p.unitPrice * p.quantity) model |> List.sum |> String.fromInt |> text
+            , List.map (\p -> p.unitPrice * p.quantity) model.products |> List.sum |> String.fromInt |> text
             ]
         , button [ onClick (Quantities 2), class "btn btn-primary" ] [ text "Increase quantities" ]
         , button [ onClick (Quantities 1), class "btn btn-secondary" ] [ text "Decrease quantities" ]
         , button [ onClick (Quantities 0), class "btn btn-dark" ] [ text "Reset quantities" ]
+        , button
+            [ class "btn btn-outline-primary"
+            , disabled (List.length model.products == 0)
+            , onClick SubmitOrder
+            ]
+            [ text "Place Order" ]
         , div [ class "container" ]
             [ div [ class "row text-centered" ]
                 (List.map inventoryItemView inventoryModel)
@@ -194,8 +241,19 @@ cartView model =
 
 main : Program () Model Msg
 main =
-    Browser.sandbox
-        { init = initialModel
+    Browser.element
+        { init = initialApp
         , update = update
         , view = cartView
+        , subscriptions = subscriptionsApp
         }
+
+
+subscriptionsApp : Model -> Sub Msg
+subscriptionsApp model =
+    Sub.none
+
+
+initialApp : () -> ( Model, Cmd Msg )
+initialApp _ =
+    ( initialModel, Cmd.none )
